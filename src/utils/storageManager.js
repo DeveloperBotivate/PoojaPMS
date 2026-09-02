@@ -27,7 +27,12 @@ const STORAGE_KEYS = {
   STORE_ISSUES: 'pcb_store_issues_v1',
   STORE_RETURNS: 'pcb_store_issue_returns_v1',
   INVENTORY: 'pcb_inventory_v1',
-  QUOTATION_HISTORY: 'pcb_quotation_history_v1'
+  QUOTATION_HISTORY: 'pcb_quotation_history_v1',
+  PROJECTS: 'pcb_projects_v1',
+  DESIGNS: 'pcb_designs_v1',
+  MATERIAL_REQUIREMENTS: 'pcb_material_requirements_v1',
+  EXECUTIONS: 'pcb_executions_v1',
+  ACTUALS: 'pcb_actuals_v1'
 };
 
 // Initialize default data
@@ -2256,5 +2261,102 @@ export const insertQuotationHistory = (rows) => {
   history.push(...rows);
   saveQuotationHistory(history);
   return history;
+};
+
+// --- Project Operations ---
+export const getProjects = () => {
+  return getFromStorage(STORAGE_KEYS.PROJECTS) || [];
+};
+
+export const saveProjects = (projects) => saveToStorage(STORAGE_KEYS.PROJECTS, projects);
+
+export const saveProject = (project) => {
+  const projects = getProjects();
+  projects.push(project);
+  saveProjects(projects);
+  return project;
+};
+
+// --- Project Design Operations ---
+export const getDesigns = () => {
+  return getFromStorage(STORAGE_KEYS.DESIGNS) || [];
+};
+
+export const saveDesigns = (designs) => saveToStorage(STORAGE_KEYS.DESIGNS, designs);
+
+export const getDesignByProject = (projectNo) => {
+  const designs = getDesigns();
+  const found = designs.find(d => d.projectNo === projectNo);
+  return found ? found.rows : [];
+};
+
+export const saveDesignForProject = (projectNo, rows) => {
+  const designs = getDesigns();
+  const idx = designs.findIndex(d => d.projectNo === projectNo);
+  const record = { projectNo, rows, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    designs[idx] = record;
+  } else {
+    designs.push(record);
+  }
+  saveDesigns(designs);
+  return record;
+};
+
+export const updateProject = (updated) => {
+  const projects = getProjects();
+  const index = projects.findIndex(p => p.id === updated.id);
+  if (index !== -1) {
+    projects[index] = updated;
+    saveProjects(projects);
+  }
+};
+
+export const deleteProject = (id) => {
+  const projects = getProjects();
+  const filtered = projects.filter(p => p.id !== id);
+  saveProjects(filtered);
+};
+
+// --- Material Requirement Operations ---
+export const getReqMaterials = () => {
+  return getFromStorage(STORAGE_KEYS.MATERIAL_REQUIREMENTS) || [];
+};
+
+export const saveReqMaterials = (data) => saveToStorage(STORAGE_KEYS.MATERIAL_REQUIREMENTS, data);
+
+export const saveReqMaterial = (indent) => {
+  const data = getReqMaterials();
+  data.push(indent);
+  saveReqMaterials(data);
+  return indent;
+};
+
+// --- Design Execution Entry Operations ---
+export const getExecutions = () => {
+  return getFromStorage(STORAGE_KEYS.EXECUTIONS) || [];
+};
+
+export const saveExecutions = (data) => saveToStorage(STORAGE_KEYS.EXECUTIONS, data);
+
+export const saveExecution = (entry) => {
+  const data = getExecutions();
+  data.push(entry);
+  saveExecutions(data);
+  return entry;
+};
+
+// --- Design Actual Measurement Operations ---
+export const getActuals = () => {
+  return getFromStorage(STORAGE_KEYS.ACTUALS) || [];
+};
+
+export const saveActuals = (data) => saveToStorage(STORAGE_KEYS.ACTUALS, data);
+
+export const saveActual = (entry) => {
+  const data = getActuals();
+  data.push(entry);
+  saveActuals(data);
+  return entry;
 };
 

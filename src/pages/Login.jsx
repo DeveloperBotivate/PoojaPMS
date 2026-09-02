@@ -4,7 +4,7 @@ import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { getUsers } from '../utils/storageManager';
-import botivateLogoB from '../Assets/logo.png';
+import companyLogo from '../Assets/Pooja Logo.png';
 
 const Login = () => {
   const [id, setId] = useState('');
@@ -63,15 +63,13 @@ const Login = () => {
           
           {/* Logo Section */}
           <div className="flex flex-col items-center space-y-6">
-            <div className="w-28 h-28 rounded-full border-4 border-sky-400 flex items-center justify-center shadow-lg bg-transparent">
-              <img
-                src={botivateLogoB}
-                alt="Botivate Logo"
-                className="w-24 h-24 object-contain"
-              />
-            </div>
+            <img
+              src={companyLogo}
+              alt="Company Logo"
+              className="w-24 h-24 object-contain"
+            />
             <div className="text-center space-y-2">
-              <h1 className="text-4xl font-bold text-gray-900">Store</h1>
+              <h1 className="text-4xl font-bold text-gray-900">Project</h1>
               <p className="text-gray-600 text-base font-medium">Management System</p>
             </div>
           </div>

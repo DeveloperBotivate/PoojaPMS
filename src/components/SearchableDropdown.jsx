@@ -11,7 +11,7 @@ import { Search, ChevronDown, Check } from 'lucide-react';
  * @param {string} placeholder - Text to show when no value is selected.
  * @param {string} className - Additional CSS classes for the container.
  */
-const SearchableDropdown = ({ options, value, onChange, onAdd, placeholder = "Select option...", className = "" }) => {
+const SearchableDropdown = ({ options, value, onChange, onAdd, placeholder = "Select option...", className = "", height = "h-[30px] md:h-[34px]" }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [openUp, setOpenUp] = useState(false);
@@ -66,7 +66,7 @@ const SearchableDropdown = ({ options, value, onChange, onAdd, placeholder = "Se
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full bg-white border border-gray-300 rounded px-2 py-1 flex justify-between items-center cursor-pointer hover:border-indigo-500 transition-all h-[30px] md:h-[34px] shadow-sm group outline-none focus:ring-1 focus:ring-indigo-500/30 active:scale-[0.98]"
+        className={`w-full bg-white border border-gray-300 rounded px-2 py-1 flex justify-between items-center cursor-pointer hover:border-indigo-500 transition-all ${height} shadow-sm group outline-none focus:ring-1 focus:ring-indigo-500/30 active:scale-[0.98]`}
       >
         <span className={`text-[11px] md:text-[13px] truncate ${selectedOption ? 'text-gray-900' : 'text-gray-400'}`}>
           {selectedOption ? selectedOption.label : placeholder}

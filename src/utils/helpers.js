@@ -126,6 +126,29 @@ export const getTodaysCredits = (credits) => {
     .reduce((sum, c) => sum + parseFloat(c.amount || 0), 0);
 };
 
+// Builds a Map from a list item's key to a "distance from the upper row" value, based on that
+// item's own Chainage: this item's Chainage minus the previous item's Chainage (by the given
+// order). If this item's own Chainage is missing or 0, the subtraction is skipped and 0 is
+// stored instead - the following item then continues normally, subtracting from its own raw
+// Chainage as usual.
+export const buildChainageDiffMap = (sortedList, chainageOf, keyOf) => {
+  const map = new Map();
+  sortedList.forEach((item, i) => {
+    const cur = parseFloat(chainageOf(item));
+    if (Number.isNaN(cur) || cur === 0) {
+      map.set(keyOf(item), 0);
+      return;
+    }
+    if (i === 0) {
+      map.set(keyOf(item), cur);
+      return;
+    }
+    const prev = parseFloat(chainageOf(sortedList[i - 1]));
+    map.set(keyOf(item), Number.isNaN(prev) ? cur : cur - prev);
+  });
+  return map;
+};
+
 // Ledger entry creator
 export const createLedgerEntry = (id, personName, type, amount, date, referenceId, balanceAfter) => {
   return {
