@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Building2, MapPin, Calendar, Tag, FilePlus, Search, RotateCcw, Hammer, Ruler, ListChecks, Check, GitCompare } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Calendar, Tag, FilePlus, Search, RotateCcw, Hammer, Ruler, ListChecks, Check, GitCompare, Mountain } from 'lucide-react';
 import { getProjects, getDesignByProject, getExecutions, getActuals } from '../../../utils/storageManager';
 import { buildChainageDiffMap } from '../../../utils/helpers';
 import DataTable from '../../../components/DataTable';
@@ -11,8 +11,13 @@ import Reqmaterial from '../../MaterialRequirement/Reqmaterial';
 import Execution from './Execution';
 import Actual from './Actual';
 
-// Show the value as-is (0 included) - only fall back to '-' when it's actually empty
-const displayVal = (v) => (v === undefined || v === null || v === '' ? '-' : v);
+// Show the value as-is (0 included) - only fall back to '-' when it's actually empty.
+// Numeric values are shown with 3 digits after the decimal point; non-numeric text is untouched.
+const displayVal = (v) => {
+  if (v === undefined || v === null || v === '') return '-';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : v;
+};
 
 export default function ViewDesign() {
   const { projectNo } = useParams();
@@ -283,6 +288,12 @@ export default function ViewDesign() {
           className="flex items-center justify-center gap-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg px-3 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm hover:bg-indigo-50 transition"
         >
           <ListChecks size={16} /> Execution Details
+        </button>
+        <button
+          onClick={() => navigate(`/excavation-murum/${encodeURIComponent(project.serialNo)}`)}
+          className="flex items-center justify-center gap-2 bg-white border border-amber-200 text-amber-600 rounded-lg px-3 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm hover:bg-amber-50 transition"
+        >
+          <Mountain size={16} /> Excavation &amp; Murum
         </button>
         <button
           onClick={() => navigate(`/actual-details/${encodeURIComponent(project.serialNo)}`)}

@@ -9,6 +9,7 @@ import ViewDesign from './pages/AddProject/UploadDesign/ViewDesign';
 import ExecutionDetails from './pages/AddProject/UploadDesign/ExecutionDetails';
 import ActualDetails from './pages/AddProject/UploadDesign/ActualDetails';
 import AutoComparison from './pages/AddProject/UploadDesign/AutoComparison';
+import ExcavationMurum from './pages/AddProject/UploadDesign/Excavation&Murum';
 import AllReqMaterial from './pages/MaterialRequirement/Allreqmaterial';
 
 import ProtectedRoute from './components/ProtectedRoute';
@@ -38,6 +39,7 @@ function App() {
             <Route path="execution-details/:projectNo" element={<ExecutionDetails />} />
             <Route path="actual-details/:projectNo" element={<ActualDetails />} />
             <Route path="auto-comparison/:projectNo" element={<AutoComparison />} />
+            <Route path="excavation-murum/:projectNo" element={<ExcavationMurum />} />
             <Route path="material-requirement" element={<AllReqMaterial />} />
           </Route>
 

@@ -34,8 +34,13 @@ const HEADER_ALIASES = {
 
 const normalizeKey = (key) => String(key).toLowerCase().replace(/[^a-z]/g, '');
 
-// Show the value as-is (0 included) - only fall back to '-' when it's actually empty
-const displayVal = (v) => (v === undefined || v === null || v === '' ? '-' : v);
+// Show the value as-is (0 included) - only fall back to '-' when it's actually empty.
+// Numeric values are shown with 3 digits after the decimal point; non-numeric text is untouched.
+const displayVal = (v) => {
+  if (v === undefined || v === null || v === '') return '-';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : v;
+};
 
 export default function UploadDesign({ isOpen, onClose, project, onUploaded }) {
   const [fileName, setFileName] = useState('');

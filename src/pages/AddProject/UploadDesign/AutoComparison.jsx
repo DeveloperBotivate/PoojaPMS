@@ -21,7 +21,11 @@ const parseNum = (v) => {
 };
 
 // Show the value as-is (0 included) - only fall back to '-' when it's actually empty
-const displayVal = (v) => (v === undefined || v === null || v === '' ? '-' : v);
+const displayVal = (v) => {
+  if (v === undefined || v === null || v === '') return '-';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : v;
+};
 
 // Per-field comparison against Design: 'match' (equal), 'over' (design < value -> red),
 // 'under' (design > value -> yellow), or null when the field hasn't been filled in yet

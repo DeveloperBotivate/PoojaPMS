@@ -181,7 +181,11 @@ export default function AddProject() {
   ];
 
   const renderRow = (item) => (
-    <tr key={item.serialNo} className="group hover:bg-indigo-50/30 transition-colors border-b border-gray-100">
+    <tr
+      key={item.serialNo}
+      onClick={() => navigate(`/view-design/${encodeURIComponent(item.serialNo)}`)}
+      className="group hover:bg-indigo-50/30 transition-colors border-b border-gray-100 cursor-pointer"
+    >
       {/* Upload Design column (sticky first) */}
       <td
         className="px-3 py-2 text-center whitespace-nowrap bg-white group-hover:bg-indigo-50 transition-colors"
@@ -189,14 +193,14 @@ export default function AddProject() {
       >
         <div className="flex items-center justify-center gap-1.5">
           <button
-            onClick={() => setUploadProject(item)}
+            onClick={(e) => { e.stopPropagation(); setUploadProject(item); }}
             title="Upload Design"
             className="inline-flex items-center justify-center p-1.5 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200 transition-colors"
           >
             <UploadCloud size={13} />
           </button>
           <button
-            onClick={() => navigate(`/view-design/${encodeURIComponent(item.serialNo)}`)}
+            onClick={(e) => { e.stopPropagation(); navigate(`/view-design/${encodeURIComponent(item.serialNo)}`); }}
             title="View Design"
             className="inline-flex items-center justify-center p-1.5 rounded bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
           >
@@ -212,7 +216,7 @@ export default function AddProject() {
       <td className="px-4 py-3 text-center text-[13px] text-gray-600 whitespace-nowrap">{item.projectLocation}</td>
       <td className="px-4 py-3 text-center text-[13px] text-gray-600 whitespace-nowrap">{formatDate(item.startDate)}</td>
       <td className="px-4 py-3 text-center text-[13px] text-gray-600 whitespace-nowrap">{formatDate(item.plannedEndDate)}</td>
-      <td className="px-4 py-3 text-left whitespace-nowrap">
+      <td className="px-4 py-3 text-left whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
         {item.projectDescription ? (
           <InfoPopover items={[item.projectDescription]} title="Project Description">
             <span className="text-[11px] text-gray-500 flex items-center gap-1 cursor-help hover:text-indigo-600">
@@ -227,6 +231,7 @@ export default function AddProject() {
       <td
         className="px-3 py-2 text-center whitespace-nowrap bg-white group-hover:bg-indigo-50 transition-colors"
         style={{ position: 'sticky', right: 0, zIndex: 10, boxShadow: '-2px 0 4px rgba(0,0,0,0.08)' }}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-center gap-1.5">
           <button

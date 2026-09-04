@@ -8,6 +8,13 @@ import { DESIGN_COLUMNS } from './UploadDesign';
 // Alignment is shown separately above - exclude it from the Design/Execution measurement grids
 const MEASURE_COLUMNS = DESIGN_COLUMNS.filter(col => col.key !== 'alignment');
 
+// Numeric values are shown with 3 digits after the decimal point; non-numeric/empty values pass through
+const fmt3 = (v) => {
+  if (v === undefined || v === null || v === '') return '';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : v;
+};
+
 // Execution values start pre-filled from the Design row (still fully editable)
 const prefillValues = (designRow) =>
   MEASURE_COLUMNS.reduce((acc, col) => ({ ...acc, [col.key]: designRow?.[col.key] ?? '' }), {});
@@ -17,12 +24,16 @@ export default function Execution({ isOpen, onClose, project, designRow, onSaved
   const [values, setValues] = useState({});
   const [submitDate, setSubmitDate] = useState(getTodayDate());
   const [remarks, setRemarks] = useState('');
+  const [isHardRock, setIsHardRock] = useState(false);
+  const [hardRockValue, setHardRockValue] = useState('');
 
   useEffect(() => {
     if (isOpen && designRow) {
       setValues(prefillValues(designRow));
       setSubmitDate(getTodayDate());
       setRemarks('');
+      setIsHardRock(false);
+      setHardRockValue('');
     }
   }, [isOpen, designRow]);
 
@@ -44,6 +55,10 @@ export default function Execution({ isOpen, onClose, project, designRow, onSaved
       toast.error('Submit Date is required');
       return;
     }
+    if (isHardRock && !String(hardRockValue).trim()) {
+      toast.error('Please enter the Hard Rock value');
+      return;
+    }
 
     setLoading(true);
 
@@ -60,6 +75,8 @@ export default function Execution({ isOpen, onClose, project, designRow, onSaved
       alignment: designRow.alignment,
       submitDate,
       remarks,
+      isHardRock,
+      hardRockValue: isHardRock ? hardRockValue : '',
       design,
       execution: { ...values }
     };
@@ -100,6 +117,32 @@ export default function Execution({ isOpen, onClose, project, designRow, onSaved
               className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[12px] md:text-[13px] h-[30px] md:h-[34px]"
             />
           </div>
+          <div className="flex items-end gap-3">
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 h-[30px] md:h-[34px] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isHardRock}
+                  onChange={(e) => { setIsHardRock(e.target.checked); if (!e.target.checked) setHardRockValue(''); }}
+                  className="w-4 h-4 accent-indigo-600 cursor-pointer"
+                />
+                <span className="text-[10px] md:text-[12px] text-gray-700 uppercase tracking-tighter">If Hard Rock</span>
+              </label>
+            </div>
+            {isHardRock && (
+              <div className="space-y-1">
+                <label className="block text-[10px] md:text-[12px] text-gray-700 uppercase tracking-tighter">Hard Rock Level *</label>
+                <input
+                  type="text"
+                  value={hardRockValue}
+                  onChange={(e) => setHardRockValue(e.target.value)}
+                  placeholder="Enter"
+                  autoFocus
+                  className="w-[160px] md:w-[200px] border border-indigo-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[12px] md:text-[13px] h-[30px] md:h-[34px]"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Design row (read-only, pre-filled) */}
@@ -111,7 +154,7 @@ export default function Execution({ isOpen, onClose, project, designRow, onSaved
                 <label className="block text-[9px] md:text-[10px] text-gray-400 uppercase tracking-tighter truncate">{col.label}</label>
                 <input
                   type="text"
-                  value={designRow[col.key] ?? ''}
+                  value={fmt3(designRow[col.key])}
                   readOnly
                   className="w-full border border-gray-200 bg-gray-100 text-gray-600 rounded px-2 py-1 focus:outline-none text-[11px] md:text-[12px] h-[30px] md:h-[34px] cursor-not-allowed"
                 />

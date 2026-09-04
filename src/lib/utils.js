@@ -16,7 +16,7 @@ export const calculateSubtotal = (items) => {
   return items.reduce((acc, item) => {
     const basePrice = item.rate * item.quantity;
     return acc + (basePrice - (basePrice * ((item.discountPercent || 0) / 100)));
-  }, 0).toFixed(2);
+  }, 0).toFixed(3);
 };
 
 export const calculateTotalGst = (items) => {
@@ -24,13 +24,13 @@ export const calculateTotalGst = (items) => {
     const basePrice = item.rate * item.quantity;
     const withDiscount = basePrice - (basePrice * ((item.discountPercent || 0) / 100));
     return acc + (withDiscount * ((item.gstPercent || 0) / 100));
-  }, 0).toFixed(2);
+  }, 0).toFixed(3);
 };
 
 export const calculateGrandTotal = (items) => {
   const subtotal = parseFloat(calculateSubtotal(items));
   const gst = parseFloat(calculateTotalGst(items));
-  return (subtotal + gst).toFixed(2);
+  return (subtotal + gst).toFixed(3);
 };
 
 export const formatDate = (date) => {

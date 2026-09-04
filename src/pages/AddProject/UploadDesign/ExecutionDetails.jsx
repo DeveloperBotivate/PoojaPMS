@@ -12,7 +12,11 @@ const MEASURE_COLUMNS = DESIGN_COLUMNS.filter(col => col.key !== 'alignment');
 const EXEC_COLUMNS = MEASURE_COLUMNS.map(col => ({ key: col.key, label: `Exe-${col.label}` }));
 
 // Show the value as-is (0 included) - only fall back to '-' when it's actually empty
-const displayVal = (v) => (v === undefined || v === null || v === '' ? '-' : v);
+const displayVal = (v) => {
+  if (v === undefined || v === null || v === '') return '-';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(3) : v;
+};
 
 // YYYY-MM-DD (from the date input) -> DD/MM/YYYY for display
 const formatDate = (d) => {
@@ -48,7 +52,7 @@ export default function ExecutionDetails() {
   const chainageDiffMap = buildChainageDiffMap(bySerialNo, e => e.execution?.chainage, e => e.id);
 
   const tableHeaders = [
-    "Serial No", "Alignment", ...EXEC_COLUMNS.map(col => col.label), "Exe-Date", "Exe-Remarks",
+    "Serial No", "Alignment", ...EXEC_COLUMNS.map(col => col.label), "Exe-Date", "Exe-Remarks", "Hard Rock",
     ...uniquePipeDias.map(String)
   ];
 
@@ -71,6 +75,7 @@ export default function ExecutionDetails() {
     ...EXEC_COLUMNS.map(() => ''),
     '',
     '',
+    '',
     ...pipeDiaTotals.map(t => t.toFixed(3))
   ];
 
@@ -86,6 +91,11 @@ export default function ExecutionDetails() {
       <td className="px-4 py-2.5 text-center text-[11px] text-gray-700 whitespace-nowrap">{formatDate(entry.submitDate)}</td>
       <td className="px-4 py-2.5 text-left text-[11px] text-gray-600 max-w-[220px] truncate" title={entry.remarks || ''}>
         {entry.remarks || '-'}
+      </td>
+      <td className="px-4 py-2.5 text-center text-[11px] whitespace-nowrap">
+        {entry.isHardRock
+          ? <span className="text-amber-700 font-semibold">{entry.hardRockValue || '-'}</span>
+          : <span className="text-gray-300">-</span>}
       </td>
       {uniquePipeDias.map(dia => {
         const diff = String(entry.execution?.pipeDia) === String(dia) ? chainageDiffMap.get(entry.id) : undefined;
@@ -120,6 +130,12 @@ export default function ExecutionDetails() {
         <div className="text-[10px] px-1.5 py-1 bg-gray-50 rounded">
           <span className="text-gray-500">Exe-Remarks: </span>
           <span className="text-gray-800">{entry.remarks}</span>
+        </div>
+      )}
+      {entry.isHardRock && (
+        <div className="text-[10px] px-1.5 py-1 bg-amber-50 rounded">
+          <span className="text-gray-500">Hard Rock: </span>
+          <span className="text-amber-700 font-semibold">{entry.hardRockValue || '-'}</span>
         </div>
       )}
       {uniquePipeDias.length > 0 && (

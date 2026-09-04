@@ -221,7 +221,7 @@ const NewPayrollModal = ({
                         newPayrollData.bonus +
                         newPayrollData.overtime +
                         newPayrollData.otherAllowances
-                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ).toLocaleString("en-IN", { minimumFractionDigits: 3 })}
                     </span>
                   </div>
                 </div>
@@ -295,7 +295,7 @@ const NewPayrollModal = ({
                         newPayrollData.pf +
                         newPayrollData.loan +
                         newPayrollData.otherDeductions
-                      ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      ).toLocaleString("en-IN", { minimumFractionDigits: 3 })}
                     </span>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ const NewPayrollModal = ({
                   (newPayrollData.pf +
                     newPayrollData.loan +
                     newPayrollData.otherDeductions)
-                ).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                ).toLocaleString("en-IN", { minimumFractionDigits: 3 })}
               </span>
             </div>
           </div>
