@@ -1,25 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Eye, X, FileText, Info } from 'lucide-react';
-import { getReqMaterials } from '../../utils/storageManager';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Search, Eye, X, FileText, Info, ArrowLeft, Building2, MapPin, Calendar, Tag, FilePlus } from 'lucide-react';
+import { getReqMaterials, getProjectOrMinor } from '../../utils/storageManager';
 import DataTable from '../../components/DataTable';
 import InfoPopover from '../../components/InfoPopover';
+import Reqmaterial from './Reqmaterial';
 
 export default function AllReqMaterial() {
+  const { projectNo } = useParams();
+  const navigate = useNavigate();
+
+  const [project, setProject] = useState(null);
   const [reqMaterials, setReqMaterials] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState('');
+  const [showReqModal, setShowReqModal] = useState(false);
+  const [viewScope, setViewScope] = useState(projectNo ? 'project' : 'all');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
 
   useEffect(() => {
     setReqMaterials(getReqMaterials());
-  }, []);
+    if (projectNo) {
+      const decodedNo = decodeURIComponent(projectNo);
+      const found = getProjectOrMinor(decodedNo);
+      setProject(found || null);
+    }
+  }, [projectNo]);
 
   // Flatten indents by product for table display
   const flattenedRows = reqMaterials.flatMap(indent =>
-    indent.items.map(item => ({
+    (indent.items || []).map(item => ({
       ...indent,
       ...item,
       reqId: indent.id
@@ -27,15 +40,20 @@ export default function AllReqMaterial() {
   ).reverse();
 
   const filteredRows = flattenedRows.filter(row => {
+    if (project && viewScope === 'project') {
+      const matchProject = row.projectNo === project.serialNo || row.projectName === project.projectName;
+      if (!matchProject) return false;
+    }
+
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
-      row.indentNo.toLowerCase().includes(q) ||
-      row.projectName.toLowerCase().includes(q) ||
-      row.groupHead.toLowerCase().includes(q) ||
-      row.productName.toLowerCase().includes(q) ||
-      row.indenterName.toLowerCase().includes(q) ||
-      row.indentStatus.toLowerCase().includes(q)
+      (row.indentNo || '').toLowerCase().includes(q) ||
+      (row.projectName || '').toLowerCase().includes(q) ||
+      (row.groupHead || '').toLowerCase().includes(q) ||
+      (row.productName || '').toLowerCase().includes(q) ||
+      (row.indenterName || '').toLowerCase().includes(q) ||
+      (row.indentStatus || '').toLowerCase().includes(q)
     );
   });
 
@@ -163,7 +181,14 @@ export default function AllReqMaterial() {
   return (
     <div className="p-0 sm:p-2 md:p-6 space-y-2 md:space-y-6 flex flex-col h-full min-h-0">
       {/* Header */}
-      <div className="flex items-center gap-2 w-full px-2 sm:px-0">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 w-full px-2 sm:px-0">
+        <button
+          onClick={() => project ? (project.isMinor ? navigate(`/project-minors/${encodeURIComponent(project.parentProjectNo)}`) : navigate(`/view-design/${encodeURIComponent(project.serialNo)}`)) : navigate('/upload-design')}
+          className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-semibold w-fit flex-shrink-0"
+        >
+          <ArrowLeft size={16} /> Back
+        </button>
+
         <div className="flex-1 relative max-w-sm">
           <Search className="absolute left-2.5 top-[9px] md:top-[11px] text-gray-400" size={14} />
           <input
@@ -174,10 +199,79 @@ export default function AllReqMaterial() {
             className="w-full bg-white border border-gray-300 rounded-lg md:rounded pl-8 pr-2 py-1.5 focus:outline-none focus:border-sky-500 text-xs md:text-sm h-[32px] md:h-[38px]"
           />
         </div>
+
+        {project && (
+          <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs font-semibold">
+            <button
+              onClick={() => { setViewScope('project'); setCurrentPage(1); }}
+              className={`px-3 py-1 rounded-md transition ${viewScope === 'project' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              This Project ({flattenedRows.filter(r => r.projectNo === project.serialNo || r.projectName === project.projectName).length})
+            </button>
+            <button
+              onClick={() => { setViewScope('all'); setCurrentPage(1); }}
+              className={`px-3 py-1 rounded-md transition ${viewScope === 'all' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              All Requirements ({flattenedRows.length})
+            </button>
+          </div>
+        )}
+
+        {project && (
+          <button
+            onClick={() => setShowReqModal(true)}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm transition flex-shrink-0"
+          >
+            <FilePlus size={16} /> Add Material Requirement
+          </button>
+        )}
       </div>
 
+      {/* Project Header Banner */}
+      {project && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-5 mx-2 sm:mx-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="flex items-start gap-2 min-w-0">
+              <Tag size={20} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wide">Project No</p>
+                <p className="text-base md:text-lg text-indigo-600 font-bold truncate">{project.serialNo}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 min-w-0">
+              <Building2 size={20} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wide">Project Name</p>
+                <p className="text-base md:text-lg text-gray-900 font-bold truncate">{project.projectName}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 min-w-0">
+              <MapPin size={20} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wide">Project Location</p>
+                <p className="text-base md:text-lg text-gray-900 font-bold truncate">{project.projectLocation}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 min-w-0">
+              <Calendar size={20} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wide">Start Date</p>
+                <p className="text-base md:text-lg text-gray-900 font-bold truncate">{project.startDate}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2 min-w-0">
+              <Calendar size={20} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] md:text-xs font-bold text-gray-500 uppercase tracking-wide">Planned End Date</p>
+                <p className="text-base md:text-lg text-gray-900 font-bold truncate">{project.plannedEndDate}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col mx-2 sm:mx-0">
         <DataTable
           headers={tableHeaders}
           data={paginatedRows}
@@ -192,6 +286,19 @@ export default function AllReqMaterial() {
           totalResults={filteredRows.length}
         />
       </div>
+
+      {/* Add Requirement Modal */}
+      {project && (
+        <Reqmaterial
+          isOpen={showReqModal}
+          onClose={() => setShowReqModal(false)}
+          project={project}
+          onSaved={() => {
+            setShowReqModal(false);
+            setReqMaterials(getReqMaterials());
+          }}
+        />
+      )}
 
       {/* Image Modal */}
       {showImageModal && (

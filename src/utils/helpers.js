@@ -91,6 +91,61 @@ export const fileToBase64 = (file) => {
   });
 };
 
+// Compresses an image file down to a target size by resizing and re-encoding as JPEG at
+// decreasing quality, then resolves with the result as a base64 data URI (plus its final
+// byte size). Falls back to the smallest size it can reach if the target can't be hit at a
+// still-readable quality (0.3 floor). Only works for images - PDFs etc. can't be compressed
+// this way and should be size-checked directly instead.
+export const compressImageToBase64 = (file, { maxBytes = 2 * 1024 * 1024, maxDimension = 1920 } = {}) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        const scale = maxDimension / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const tryQuality = (quality) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error('Could not compress image'));
+            return;
+          }
+          if (blob.size <= maxBytes || quality <= 0.3) {
+            URL.revokeObjectURL(objectUrl);
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onload = () => resolve({ base64: reader.result, size: blob.size });
+            reader.onerror = (error) => reject(error);
+          } else {
+            tryQuality(quality - 0.15);
+          }
+        }, 'image/jpeg', quality);
+      };
+
+      tryQuality(0.9);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Could not load image'));
+    };
+
+    img.src = objectUrl;
+  });
+};
+
 // Get file name from base64
 export const getFileNameFromBase64 = (base64String) => {
   const arr = base64String.split(',');
@@ -161,4 +216,53 @@ export const createLedgerEntry = (id, personName, type, amount, date, referenceI
     balanceAfter: parseFloat(balanceAfter),
     timestamp: new Date().toISOString()
   };
+};
+
+const WORDS_ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+  'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const WORDS_TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+const twoDigitsToWords = (n) => {
+  if (n < 20) return WORDS_ONES[n];
+  const tens = Math.floor(n / 10);
+  const ones = n % 10;
+  return `${WORDS_TENS[tens]}${ones ? ' ' + WORDS_ONES[ones] : ''}`;
+};
+
+const threeDigitsToWords = (n) => {
+  const hundreds = Math.floor(n / 100);
+  const rest = n % 100;
+  let str = '';
+  if (hundreds) str += `${WORDS_ONES[hundreds]} Hundred`;
+  if (rest) str += `${hundreds ? ' ' : ''}${twoDigitsToWords(rest)}`;
+  return str;
+};
+
+// Converts a non-negative number to words using the Indian numbering system
+// (Crore / Lakh / Thousand). Any decimal portion is dropped - callers needing
+// paise should format that separately.
+export const numberToWordsIndian = (num) => {
+  const n = Math.floor(Math.abs(Number(num) || 0));
+  if (n === 0) return 'Zero';
+
+  const crore = Math.floor(n / 10000000);
+  const lakh = Math.floor((n % 10000000) / 100000);
+  const thousand = Math.floor((n % 100000) / 1000);
+  const hundred = n % 1000;
+
+  const parts = [];
+  if (crore) parts.push(`${threeDigitsToWords(crore)} Crore`);
+  if (lakh) parts.push(`${threeDigitsToWords(lakh)} Lakh`);
+  if (thousand) parts.push(`${threeDigitsToWords(thousand)} Thousand`);
+  if (hundred) parts.push(threeDigitsToWords(hundred));
+
+  return parts.join(' ');
+};
+
+// Full currency-in-words line for a Rupee amount, e.g. "Rupees One Lakh Twenty Thousand Only".
+// Returns '' for empty/zero/invalid input so callers can show a placeholder instead.
+export const amountInWords = (amount) => {
+  const n = Number(amount);
+  if (!amount || Number.isNaN(n) || n <= 0) return '';
+  return `Rupees ${numberToWordsIndian(n)} Only`;
 };

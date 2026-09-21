@@ -1,7 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Search, User, Menu, Settings } from 'lucide-react';
 
 const Header = ({ onMenuClick, user }) => {
+  const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-indigo-200">
       <div className="flex justify-between items-center h-16 px-4 sm:px-6 lg:px-8">
@@ -19,7 +21,11 @@ const Header = ({ onMenuClick, user }) => {
         {/* Right Section: Actions & Profile */}
         <div className="flex items-center gap-2 sm:gap-4">
 
-          <button className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all">
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-all"
+            title="Settings"
+          >
             <Settings size={20} />
           </button>
 

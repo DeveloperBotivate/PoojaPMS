@@ -1,10 +1,17 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LogOut as LogOutIcon,
   X,
   Building2,
-  ClipboardList,
+  Truck,
+  UserCheck,
+  FileCheck2,
+  Compass,
+  FileUp,
+  ShieldCheck,
+  FileSpreadsheet,
+  Settings as SettingsIcon,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -22,8 +29,35 @@ const Sidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }) => {
 
   const menuItems = [
     { path: '/add-project', icon: Building2, label: 'New Project' },
-    { path: '/material-requirement', icon: ClipboardList, label: 'Material Requirement' },
+    { path: '/mobilization', icon: Truck, label: 'Mobilization' },
+    { path: '/finalize-consultant', icon: UserCheck, label: 'Finalize Consultant' },
+    { path: '/sent-po', icon: FileCheck2, label: 'Sent PO' },
+    { path: '/survey', icon: Compass, label: 'Survey' },
+    { path: '/drawing-upload', icon: FileUp, label: 'Drawing Upload' },
+    { path: '/final-approval', icon: ShieldCheck, label: 'Final Approval' },
+    { path: '/upload-design', icon: FileSpreadsheet, label: 'Upload Design' },
+    { path: '/settings', icon: SettingsIcon, label: 'Settings' },
   ];
+
+  const location = useLocation();
+
+  const isItemActive = (path) => {
+    if (location.pathname === path) return true;
+    if (path === '/upload-design') {
+      const designSubPages = [
+        '/project-minors',
+        '/view-design', 
+        '/execution-details', 
+        '/actual-details', 
+        '/auto-comparison', 
+        '/excavation-murum', 
+        '/process-flow',
+        '/material-requirement'
+      ];
+      return designSubPages.some(sub => location.pathname.startsWith(sub));
+    }
+    return false;
+  };
 
   return (
     <>
@@ -70,10 +104,10 @@ const Sidebar = ({ isOpen, onClose, collapsed, onToggleCollapse }) => {
                 <NavLink
                   to={item.path}
                   onClick={onClose}
-                  className={({ isActive }) => `
+                  className={() => `
                     flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group overflow-hidden
                     ${collapsed ? 'justify-center' : ''}
-                    ${isActive
+                    ${isItemActive(item.path)
                       ? 'bg-indigo-100/50 text-indigo-600 border-l-4 border-indigo-600'
                       : 'text-gray-700 hover:bg-indigo-50/50 hover:text-indigo-600 border-l-4 border-transparent'}
                   `}

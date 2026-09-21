@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building2, MapPin, Calendar, Tag, Search } from 'lucide-react';
-import { getProjects, getExecutions } from '../../../utils/storageManager';
+import { getProjects, getExecutions, getProjectOrMinor } from '../../../utils/storageManager';
 import { buildChainageDiffMap } from '../../../utils/helpers';
 import DataTable from '../../../components/DataTable';
 import { DESIGN_COLUMNS } from './UploadDesign';
@@ -34,7 +34,7 @@ export default function ExecutionDetails() {
 
   useEffect(() => {
     const decodedNo = decodeURIComponent(projectNo || '');
-    const found = getProjects().find(p => p.serialNo === decodedNo);
+    const found = getProjectOrMinor(decodedNo);
     setProject(found || null);
     setEntries(getExecutions().filter(e => e.projectNo === decodedNo));
   }, [projectNo]);
@@ -160,10 +160,10 @@ export default function ExecutionDetails() {
     return (
       <div className="p-6 space-y-4">
         <button
-          onClick={() => navigate('/add-project')}
+          onClick={() => project?.isMinor ? navigate(`/execution-details/${encodeURIComponent(project.parentProjectNo)}`) : navigate('/add-project')}
           className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-semibold"
         >
-          <ArrowLeft size={16} /> Back to New Project
+          <ArrowLeft size={16} /> Back
         </button>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500 text-sm">
           Project not found.

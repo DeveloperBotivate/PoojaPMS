@@ -1,4 +1,5 @@
 // Storage Manager - Handle all localStorage operations
+import toast from 'react-hot-toast';
 
 const STORAGE_KEYS = {
   USERS: 'pcb_users',
@@ -32,8 +33,54 @@ const STORAGE_KEYS = {
   DESIGNS: 'pcb_designs_v1',
   MATERIAL_REQUIREMENTS: 'pcb_material_requirements_v1',
   EXECUTIONS: 'pcb_executions_v1',
-  ACTUALS: 'pcb_actuals_v1'
+  ACTUALS: 'pcb_actuals_v1',
+  STAGE_ENTRIES: 'pcb_stage_entries_v1',
+  MOBILIZATION: 'pcb_mobilization_v1',
+  FINALIZE_CONSULTANT: 'pcb_finalize_consultant_v1',
+  SENT_PO: 'pcb_sent_po_v1',
+  SURVEY: 'pcb_survey_v1',
+  DRAWING_UPLOAD: 'pcb_drawing_upload_v1',
+  FINAL_APPROVAL: 'pcb_final_approval_v1',
+  DRAWINGS: 'pcb_drawings_v1',
+  MINORS: 'pcb_minors_v1'
 };
+
+// Keys left over from an old unrelated "Petty Cash System" template this app was built from.
+// None of these are read by any page in the actual PMS UI (confirmed by search) - they only
+// exist because early versions of this file auto-generated large dummy datasets for them.
+// Safe to wipe entirely to reclaim localStorage quota without touching real project data.
+const LEGACY_STORAGE_KEYS = [
+  STORAGE_KEYS.CREDITS, STORAGE_KEYS.EXPENSES, STORAGE_KEYS.LEDGER, STORAGE_KEYS.VENDORS,
+  STORAGE_KEYS.COMPANIES, STORAGE_KEYS.ITEMS, STORAGE_KEYS.GROUP_HEADS, STORAGE_KEYS.UOMS,
+  STORAGE_KEYS.DEPARTMENTS, STORAGE_KEYS.INDENTS, STORAGE_KEYS.POS, STORAGE_KEYS.TERMS_CONDITIONS,
+  STORAGE_KEYS.LIFTING, STORAGE_KEYS.STORE_IN, STORAGE_KEYS.DIRECT_STORE_IN, STORAGE_KEYS.PAYMENTS,
+  STORAGE_KEYS.REJECT_GRN, STORAGE_KEYS.DEBIT_NOTES, STORAGE_KEYS.TALLY_ENTRIES,
+  STORAGE_KEYS.BILL_NOT_RECEIVED, STORAGE_KEYS.STORE_ISSUES, STORAGE_KEYS.STORE_RETURNS,
+  STORAGE_KEYS.INVENTORY, STORAGE_KEYS.QUOTATION_HISTORY
+];
+
+// Human-readable labels for every key this app might have in localStorage, used by the
+// Settings > Storage usage breakdown.
+const STORAGE_KEY_LABELS = {
+  [STORAGE_KEYS.USERS]: 'Users',
+  [STORAGE_KEYS.SETTINGS]: 'App Settings',
+  [STORAGE_KEYS.AUTH_USER]: 'Logged-in Session',
+  [STORAGE_KEYS.PROJECTS]: 'Projects',
+  [STORAGE_KEYS.DESIGNS]: 'Design Data',
+  [STORAGE_KEYS.MATERIAL_REQUIREMENTS]: 'Material Requirements',
+  [STORAGE_KEYS.EXECUTIONS]: 'Execution Details',
+  [STORAGE_KEYS.ACTUALS]: 'Actual Details',
+  [STORAGE_KEYS.STAGE_ENTRIES]: 'Process Flow Stages',
+  [STORAGE_KEYS.MOBILIZATION]: 'Mobilization',
+  [STORAGE_KEYS.FINALIZE_CONSULTANT]: 'Finalize Consultant',
+  [STORAGE_KEYS.SENT_PO]: 'Sent PO (incl. uploaded PO documents)',
+  [STORAGE_KEYS.SURVEY]: 'Survey',
+  [STORAGE_KEYS.DRAWING_UPLOAD]: 'Drawing Upload (incl. uploaded files)',
+  [STORAGE_KEYS.FINAL_APPROVAL]: 'Final Approval',
+  [STORAGE_KEYS.DRAWINGS]: 'Upload Drawing (incl. uploaded files)',
+  [STORAGE_KEYS.MINORS]: 'Minors'
+};
+LEGACY_STORAGE_KEYS.forEach(k => { STORAGE_KEY_LABELS[k] = 'Unused legacy data (safe to clear)'; });
 
 // Initialize default data
 const DEFAULT_USERS = [
@@ -54,8 +101,10 @@ const DEFAULT_LEDGER = [];
 const DEFAULT_VENDORS = [];
 const DEFAULT_COMPANIES = [];
 
-// Initialize storage with defaults
 export const initializeStorage = () => {
+  // Clear legacy data immediately to free up localStorage space
+  clearLegacyData();
+
   if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
   }
@@ -78,45 +127,6 @@ export const initializeStorage = () => {
     localStorage.setItem(STORAGE_KEYS.COMPANIES, JSON.stringify(DEFAULT_COMPANIES));
   }
 
-  // --- DATA MIGRATION: Update legacy JJSPL PO Numbers ---
-  const existingPOs = JSON.parse(localStorage.getItem(STORAGE_KEYS.POS) || '[]');
-  const existingIndents = JSON.parse(localStorage.getItem(STORAGE_KEYS.INDENTS) || '[]');
-  
-  let needsMigration = false;
-
-  const migratedPOs = existingPOs.map(po => {
-    if (po.poNumber && po.poNumber.includes('JJSPL/STORES/')) {
-      needsMigration = true;
-      return { ...po, poNumber: po.poNumber.replace('JJSPL/STORES/', 'Botivate/Store/') };
-    }
-    return po;
-  });
-
-  const migratedIndents = existingIndents.map(indent => {
-    let indentChanged = false;
-    const updatedItems = indent.items.map(item => {
-      if (item.poNumber && item.poNumber.includes('JJSPL/STORES/')) {
-        indentChanged = true;
-        needsMigration = true;
-        return { ...item, poNumber: item.poNumber.replace('JJSPL/STORES/', 'Botivate/Store/') };
-      }
-      return item;
-    });
-    if (indentChanged) return { ...indent, items: updatedItems };
-    return indent;
-  });
-
-  if (needsMigration) {
-    localStorage.setItem(STORAGE_KEYS.POS, JSON.stringify(migratedPOs));
-    localStorage.setItem(STORAGE_KEYS.INDENTS, JSON.stringify(migratedIndents));
-    console.log('Migration Complete: JJSPL updated to Botivate');
-  }
-
-  // Pre-seed new modules on startup
-  getBillNotReceived();
-  getStoreIssues();
-  getStoreReturns();
-  getInventory();
 };
 
 // Get data from storage
@@ -127,7 +137,78 @@ export const getFromStorage = (key) => {
 
 // Save data to storage
 export const saveToStorage = (key, data) => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (err) {
+    if (err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014)) {
+      const freed = clearLegacyData();
+      if (freed > 0) {
+        try {
+          localStorage.setItem(key, JSON.stringify(data));
+          return;
+        } catch (retryErr) {
+          // If it still fails, drop images from data if present to save space
+          try {
+            const dataString = JSON.stringify(data);
+            // Rough size check - if still too big, notify
+            toast.error('Browser storage is full - could not save. Try removing old uploaded files/attachments to free up space.', { duration: 6000 });
+          } catch(e) {}
+        }
+      } else {
+        // Automatically try to delete oldest items from key if it's an array
+        if (Array.isArray(data) && data.length > 50) {
+           try {
+             // Keep only the newest 50 items
+             const trimmedData = data.slice(-50);
+             localStorage.setItem(key, JSON.stringify(trimmedData));
+             toast.warn('Storage was full, so older records were removed to save new data.', { duration: 5000 });
+             return;
+           } catch(trimErr) {
+              // Ignore
+           }
+        }
+        
+        toast.error('Browser storage is full - could not save. Try removing old uploaded files/attachments to free up space.', { duration: 6000 });
+      }
+    } else {
+      toast.error('Failed to save data');
+    }
+    throw err;
+  }
+};
+
+// Returns every pcb_* key currently in localStorage with its size in bytes and a human label,
+// largest first, plus the combined total - for the Settings > Storage usage panel.
+export const getStorageUsage = () => {
+  const rows = [];
+  let total = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('pcb_')) continue;
+    const value = localStorage.getItem(key) || '';
+    const bytes = new Blob([value]).size;
+    total += bytes;
+    rows.push({
+      key,
+      label: STORAGE_KEY_LABELS[key] || key,
+      bytes,
+      isLegacy: LEGACY_STORAGE_KEYS.includes(key)
+    });
+  }
+  rows.sort((a, b) => b.bytes - a.bytes);
+  return { rows, total };
+};
+
+// Permanently removes the unused legacy "Petty Cash System" keys (see LEGACY_STORAGE_KEYS)
+// to reclaim localStorage quota. Does not touch any real project/pipeline data.
+export const clearLegacyData = () => {
+  let freedBytes = 0;
+  LEGACY_STORAGE_KEYS.forEach(key => {
+    const value = localStorage.getItem(key);
+    if (value) freedBytes += new Blob([value]).size;
+    localStorage.removeItem(key);
+  });
+  return freedBytes;
 };
 
 // User operations
@@ -140,6 +221,24 @@ export const getUsers = () => {
   return users;
 };
 export const saveUsers = (users) => saveToStorage(STORAGE_KEYS.USERS, users);
+
+export const upsertUser = (user) => {
+  const users = getUsers();
+  const idx = users.findIndex(u => u.id === user.id);
+  if (idx >= 0) {
+    users[idx] = { ...users[idx], ...user };
+  } else {
+    users.push({ accessPages: [], ...user });
+  }
+  saveUsers(users);
+  return users;
+};
+
+export const deleteUser = (id) => {
+  const users = getUsers().filter(u => u.id !== id);
+  saveUsers(users);
+  return users;
+};
 
 // Credits operations
 export const getCredits = () => {
@@ -2312,10 +2411,242 @@ export const updateProject = (updated) => {
   }
 };
 
+// Deletes a project and every record keyed by its project number across every pipeline page
+// (Mobilization, Finalize Consultant, Sent PO, Survey, Drawing Upload, Final Approval, Upload
+// Drawing, Material Requirements, Designs, Executions, Actuals, Process Flow stages), plus any
+// Minors under it and their own records. Without this, deleting a project used to leave large
+// uploaded attachments (PO documents, drawing files) orphaned in localStorage forever.
 export const deleteProject = (id) => {
   const projects = getProjects();
-  const filtered = projects.filter(p => p.id !== id);
-  saveProjects(filtered);
+  const target = projects.find(p => p.id === id);
+  const projectNo = target ? target.serialNo : id;
+
+  saveProjects(projects.filter(p => p.id !== id));
+  saveMobilizations(getMobilizations().filter(r => r.projectNo !== projectNo));
+  saveFinalizeConsultants(getFinalizeConsultants().filter(r => r.projectNo !== projectNo));
+  saveSentPOs(getSentPOs().filter(r => r.projectNo !== projectNo));
+  saveSurveys(getSurveys().filter(r => r.projectNo !== projectNo));
+  saveDrawingUploads(getDrawingUploads().filter(r => r.projectNo !== projectNo));
+  saveFinalApprovals(getFinalApprovals().filter(r => r.projectNo !== projectNo));
+  saveDrawings(getDrawings().filter(r => r.projectNo !== projectNo));
+  saveReqMaterials(getReqMaterials().filter(r => r.projectNo !== projectNo));
+  saveDesigns(getDesigns().filter(r => r.projectNo !== projectNo));
+  saveExecutions(getExecutions().filter(r => r.projectNo !== projectNo));
+  saveActuals(getActuals().filter(r => r.projectNo !== projectNo));
+  saveStageEntries(getStageEntries().filter(r => r.projectNo !== projectNo));
+
+  getMinors().filter(m => m.projectNo === projectNo).forEach(m => deleteMinor(m.id));
+};
+
+// --- Mobilization Operations ---
+// One record per project (id = projectNo). A project is "complete" once at least one
+// consultant has been added - the Mobilization page uses that to split projects between
+// its Pending and History tabs.
+export const getMobilizations = () => {
+  return getFromStorage(STORAGE_KEYS.MOBILIZATION) || [];
+};
+
+export const saveMobilizations = (data) => saveToStorage(STORAGE_KEYS.MOBILIZATION, data);
+
+export const getMobilizationForProject = (projectNo) => {
+  return getMobilizations().find(m => m.projectNo === projectNo) || null;
+};
+
+export const isMobilizationComplete = (record) => !!(record && Array.isArray(record.consultants) && record.consultants.length > 0);
+
+export const upsertMobilization = (record) => {
+  const data = getMobilizations();
+  const idx = data.findIndex(m => m.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveMobilizations(data);
+  return saved;
+};
+
+// --- Finalize Consultant Operations ---
+// One record per project (id = projectNo). Only projects with a completed Mobilization
+// are eligible. A project is "complete" once a single consultant has been finalized from
+// the ones added during Mobilization.
+export const getFinalizeConsultants = () => {
+  return getFromStorage(STORAGE_KEYS.FINALIZE_CONSULTANT) || [];
+};
+
+export const saveFinalizeConsultants = (data) => saveToStorage(STORAGE_KEYS.FINALIZE_CONSULTANT, data);
+
+export const getFinalizeConsultantForProject = (projectNo) => {
+  return getFinalizeConsultants().find(f => f.projectNo === projectNo) || null;
+};
+
+export const isFinalizeConsultantComplete = (record) => !!(record && record.consultantId);
+
+export const upsertFinalizeConsultant = (record) => {
+  const data = getFinalizeConsultants();
+  const idx = data.findIndex(f => f.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveFinalizeConsultants(data);
+  return saved;
+};
+
+// --- Sent PO Operations ---
+// One record per project (id = projectNo). Only projects with a Finalized Consultant are
+// eligible. A project is "complete" once a PO Number, PO Date and the uploaded PO document
+// have all been saved.
+export const getSentPOs = () => {
+  return getFromStorage(STORAGE_KEYS.SENT_PO) || [];
+};
+
+export const saveSentPOs = (data) => saveToStorage(STORAGE_KEYS.SENT_PO, data);
+
+export const getSentPOForProject = (projectNo) => {
+  return getSentPOs().find(p => p.projectNo === projectNo) || null;
+};
+
+export const isSentPOComplete = (record) => !!(record && record.poNumber && record.poDate && record.poDocument);
+
+export const upsertSentPO = (record) => {
+  const data = getSentPOs();
+  const idx = data.findIndex(p => p.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveSentPOs(data);
+  return saved;
+};
+
+// --- Survey Operations ---
+// One record per project (id = projectNo). Only projects with a PO sent are eligible. A
+// project is "complete" once the survey Start Date, End Date and a Drawing Ready (yes/no)
+// answer have all been saved.
+export const getSurveys = () => {
+  return getFromStorage(STORAGE_KEYS.SURVEY) || [];
+};
+
+export const saveSurveys = (data) => saveToStorage(STORAGE_KEYS.SURVEY, data);
+
+export const getSurveyForProject = (projectNo) => {
+  return getSurveys().find(s => s.projectNo === projectNo) || null;
+};
+
+export const isSurveyComplete = (record) => !!(record && record.surveyStartDate && record.surveyEndDate && record.drawingReady);
+
+export const upsertSurvey = (record) => {
+  const data = getSurveys();
+  const idx = data.findIndex(s => s.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveSurveys(data);
+  return saved;
+};
+
+// --- Drawing Upload Operations ---
+// One record per project (id = projectNo). Only projects with a completed Survey are
+// eligible. A project is "complete" once a Drawing Date and the uploaded drawing file have
+// both been saved. (Separate from the standalone "Upload Drawing" sidebar page/storage.)
+export const getDrawingUploads = () => {
+  return getFromStorage(STORAGE_KEYS.DRAWING_UPLOAD) || [];
+};
+
+export const saveDrawingUploads = (data) => saveToStorage(STORAGE_KEYS.DRAWING_UPLOAD, data);
+
+export const getDrawingUploadForProject = (projectNo) => {
+  return getDrawingUploads().find(d => d.projectNo === projectNo) || null;
+};
+
+export const isDrawingUploadComplete = (record) => !!(record && record.drawingDate && record.drawingFile);
+
+export const upsertDrawingUpload = (record) => {
+  const data = getDrawingUploads();
+  const idx = data.findIndex(d => d.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveDrawingUploads(data);
+  return saved;
+};
+
+// --- Final Approval Operations ---
+// One record per project (id = projectNo). Only projects with a completed Drawing Upload
+// (this new stage) are eligible. A project is "complete" once all four approval checkboxes
+// (Sub Division, Division, Circle Office, CEO Office) are checked.
+export const getFinalApprovals = () => {
+  return getFromStorage(STORAGE_KEYS.FINAL_APPROVAL) || [];
+};
+
+export const saveFinalApprovals = (data) => saveToStorage(STORAGE_KEYS.FINAL_APPROVAL, data);
+
+export const getFinalApprovalForProject = (projectNo) => {
+  return getFinalApprovals().find(f => f.projectNo === projectNo) || null;
+};
+
+export const isFinalApprovalComplete = (record) => !!(record && record.subDivision && record.division && record.circleOffice && record.ceoOffice);
+
+export const upsertFinalApproval = (record) => {
+  const data = getFinalApprovals();
+  const idx = data.findIndex(f => f.projectNo === record.projectNo);
+  const saved = { ...record, id: record.projectNo, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = saved;
+  } else {
+    data.push(saved);
+  }
+  saveFinalApprovals(data);
+  return saved;
+};
+
+// --- Upload Drawing Operations ---
+// One record per project (id = projectNo), holding a growing list of Minor entries - each
+// Minor is a name plus its uploaded drawing file (stored as a base64 data URI, matching the
+// fileToBase64 convention used elsewhere in this app). New minors are appended, never replaced,
+// so a project can accumulate drawings across multiple submissions.
+export const getDrawings = () => {
+  return getFromStorage(STORAGE_KEYS.DRAWINGS) || [];
+};
+
+export const saveDrawings = (data) => saveToStorage(STORAGE_KEYS.DRAWINGS, data);
+
+export const getDrawingsForProject = (projectNo) => {
+  const rec = getDrawings().find(d => d.projectNo === projectNo);
+  return rec ? rec.minors : [];
+};
+
+export const addDrawingMinors = (projectNo, newMinors) => {
+  const data = getDrawings();
+  const idx = data.findIndex(d => d.projectNo === projectNo);
+  const updatedAt = new Date().toISOString();
+  if (idx >= 0) {
+    data[idx] = { ...data[idx], minors: [...data[idx].minors, ...newMinors], updatedAt };
+  } else {
+    data.push({ id: projectNo, projectNo, minors: newMinors, updatedAt });
+  }
+  saveDrawings(data);
+  return data.find(d => d.projectNo === projectNo);
+};
+
+export const deleteDrawingMinor = (projectNo, minorId) => {
+  const data = getDrawings();
+  const idx = data.findIndex(d => d.projectNo === projectNo);
+  if (idx < 0) return;
+  data[idx] = { ...data[idx], minors: data[idx].minors.filter(m => m.id !== minorId), updatedAt: new Date().toISOString() };
+  saveDrawings(data);
 };
 
 // --- Material Requirement Operations ---
@@ -2360,3 +2691,85 @@ export const saveActual = (entry) => {
   return entry;
 };
 
+// --- Process Flow Stage-Step Tracking Operations ---
+// One entry per (project, stage, step) - tracks the SOP checklist progress shown on the
+// Process Flow / Stage Detail pages. Identified by a deterministic id so re-saving the same
+// step updates it in place instead of piling up duplicate rows.
+export const getStageEntries = () => {
+  return getFromStorage(STORAGE_KEYS.STAGE_ENTRIES) || [];
+};
+
+export const saveStageEntries = (data) => saveToStorage(STORAGE_KEYS.STAGE_ENTRIES, data);
+
+export const stageEntryId = (projectNo, stageNumber, stepIndex) =>
+  `${projectNo}__stage${stageNumber}__step${stepIndex}`;
+
+export const getStageEntriesForStage = (projectNo, stageNumber) => {
+  return getStageEntries().filter(e => e.projectNo === projectNo && e.stageNumber === stageNumber);
+};
+
+export const upsertStageEntry = (entry) => {
+  const data = getStageEntries();
+  const idx = data.findIndex(e => e.id === entry.id);
+  const record = { ...entry, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    data[idx] = record;
+  } else {
+    data.push(record);
+  }
+  saveStageEntries(data);
+  return record;
+};
+
+// Minors operations
+export const getMinors = () => {
+  return getFromStorage(STORAGE_KEYS.MINORS) || [];
+};
+
+export const saveMinors = (minors) => {
+  saveToStorage(STORAGE_KEYS.MINORS, minors);
+};
+
+export const saveMinor = (minor) => {
+  const data = getMinors();
+  const index = data.findIndex(m => m.id === minor.id);
+  if (index >= 0) {
+    data[index] = minor;
+  } else {
+    data.push(minor);
+  }
+  saveMinors(data);
+};
+
+// Deletes a Minor and every record keyed by its id (which acts as its own "project number"
+// everywhere downstream - see getProjectOrMinor) so nothing orphaned is left behind: its
+// design rows, execution/actual entries and process-flow stage progress.
+export const deleteMinor = (minorId) => {
+  saveMinors(getMinors().filter(m => m.id !== minorId));
+  saveDesigns(getDesigns().filter(d => d.projectNo !== minorId));
+  saveExecutions(getExecutions().filter(e => e.projectNo !== minorId));
+  saveActuals(getActuals().filter(a => a.projectNo !== minorId));
+  saveStageEntries(getStageEntries().filter(s => s.projectNo !== minorId));
+};
+
+export const getProjectOrMinor = (id) => {
+  const projects = getProjects();
+  let found = projects.find(p => p.serialNo === id);
+  if (found) return { ...found, isMinor: false };
+  
+  const minors = getMinors();
+  const minor = minors.find(m => m.id === id);
+  if (minor) {
+    const parent = projects.find(p => p.serialNo === minor.projectNo);
+    if (parent) {
+      return { 
+        ...parent, 
+        serialNo: minor.id, 
+        projectName: `${parent.projectName} (${minor.minorName})`,
+        isMinor: true,
+        parentProjectNo: parent.serialNo
+      };
+    }
+  }
+  return null;
+};

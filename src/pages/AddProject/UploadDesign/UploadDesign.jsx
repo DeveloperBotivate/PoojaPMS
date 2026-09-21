@@ -34,6 +34,47 @@ const HEADER_ALIASES = {
 
 const normalizeKey = (key) => String(key).toLowerCase().replace(/[^a-z]/g, '');
 
+// Parses an uploaded Excel/CSV File into DESIGN_COLUMNS rows - tries header-name matching first,
+// falling back to positional (Alignment/Chainage/.../Pipe Dia) order when headers don't match.
+// Shared with AddMinorModal.jsx so a minor's own design file uses the exact same parsing rules.
+export const parseDesignFile = async (file) => {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+  const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  let mappedRows = jsonRows.map(row => {
+    const mapped = {};
+    Object.keys(row).forEach(key => {
+      const target = HEADER_ALIASES[normalizeKey(key)];
+      if (target) mapped[target] = row[key];
+    });
+    return mapped;
+  }).filter(row => Object.keys(row).length > 0);
+
+  // Fallback: if header matching found almost nothing, assume columns are in the fixed order
+  // Alignment/Chainage/.../Pipe Dia and skip the header row
+  const matchedFieldCount = mappedRows.reduce((sum, r) => sum + Object.keys(r).length, 0);
+  if (jsonRows.length > 0 && matchedFieldCount < jsonRows.length) {
+    const arrayRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    const bodyRows = arrayRows.slice(1);
+    const positional = bodyRows
+      .filter(r => r.some(cell => String(cell).trim() !== ''))
+      .map(r => {
+        const mapped = {};
+        DESIGN_COLUMNS.forEach((col, idx) => {
+          mapped[col.key] = r[idx] ?? '';
+        });
+        return mapped;
+      });
+    if (positional.length >= mappedRows.length) {
+      mappedRows = positional;
+    }
+  }
+
+  return mappedRows;
+};
+
 // Show the value as-is (0 included) - only fall back to '-' when it's actually empty.
 // Numeric values are shown with 3 digits after the decimal point; non-numeric text is untouched.
 const displayVal = (v) => {
@@ -64,41 +105,7 @@ export default function UploadDesign({ isOpen, onClose, project, onUploaded }) {
     if (!file) return;
 
     try {
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-      // First try header-based mapping (matches column names to our fields)
-      const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      let mappedRows = jsonRows.map(row => {
-        const mapped = {};
-        Object.keys(row).forEach(key => {
-          const target = HEADER_ALIASES[normalizeKey(key)];
-          if (target) mapped[target] = row[key];
-        });
-        return mapped;
-      }).filter(row => Object.keys(row).length > 0);
-
-      // Fallback: if header matching found almost nothing, assume columns
-      // are in the fixed order Alignment/Chainage/.../Pipe Dia and skip the header row
-      const matchedFieldCount = mappedRows.reduce((sum, r) => sum + Object.keys(r).length, 0);
-      if (jsonRows.length > 0 && matchedFieldCount < jsonRows.length) {
-        const arrayRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        const bodyRows = arrayRows.slice(1);
-        const positional = bodyRows
-          .filter(r => r.some(cell => String(cell).trim() !== ''))
-          .map(r => {
-            const mapped = {};
-            DESIGN_COLUMNS.forEach((col, idx) => {
-              mapped[col.key] = r[idx] ?? '';
-            });
-            return mapped;
-          });
-        if (positional.length >= mappedRows.length) {
-          mappedRows = positional;
-        }
-      }
-
+      const mappedRows = await parseDesignFile(file);
       if (mappedRows.length === 0) {
         toast.error('No valid rows found in the file');
         return;

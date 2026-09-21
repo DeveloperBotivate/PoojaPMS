@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
-  Trash2, Check, Paperclip, PackagePlus, Building2, Calendar
+  Trash2, Check, Paperclip, PackagePlus, Building2, Calendar, History, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { getReqMaterials, saveReqMaterial } from '../../utils/storageManager';
 import { generateId, fileToBase64, getTodayDate } from '../../utils/helpers';
@@ -69,6 +69,7 @@ export const PRODUCTS_BY_GROUP_HEAD = {
 
 export default function Reqmaterial({ isOpen, onClose, project, onSaved }) {
   const [loading, setLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
 
   const [alertConfig, setAlertConfig] = useState({
     isOpen: false, type: 'success', title: '', message: ''
@@ -101,11 +102,15 @@ export default function Reqmaterial({ isOpen, onClose, project, onSaved }) {
         indentStatus: 'Select',
         items: [initialItem()]
       });
+      setShowHistory(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, project]);
 
   if (!isOpen || !project) return null;
+
+  // Past requirements already submitted for this project - newest first
+  const history = getReqMaterials().filter(r => r.projectNo === project.serialNo).reverse();
 
   const handleAddItem = () => {
     setFormData(prev => ({ ...prev, items: [...prev.items, initialItem()] }));
@@ -225,6 +230,47 @@ export default function Reqmaterial({ isOpen, onClose, project, onSaved }) {
         maxWidth="max-w-3xl"
       >
         <div className="space-y-3 md:space-y-5">
+          {/* Requirement History for this project - always visible, even when empty */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowHistory(prev => !prev)}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 transition-colors"
+            >
+              <span className="flex items-center gap-1.5 text-[11px] md:text-xs font-bold text-gray-600 uppercase tracking-wide">
+                <History size={14} className="text-indigo-500" /> Requirement History ({history.length})
+              </span>
+              {showHistory ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+            </button>
+            {showHistory && (
+              history.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto divide-y divide-gray-100">
+                  {history.map(h => (
+                    <div key={h.id} className="p-2.5 text-[11px] space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-indigo-600">{h.indentNo}</span>
+                        <span className="text-gray-400">{h.indentDate}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                          h.indentStatus === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {h.indentStatus}
+                        </span>
+                        <span className="text-gray-500">{h.indenterName}</span>
+                      </div>
+                      <p className="text-gray-600 truncate">
+                        {h.items.map(it => `${it.productName} (${it.qty || '-'} ${it.uom || ''})`).join(', ')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 text-[11px] text-gray-400 text-center italic">
+                  No requirements submitted yet for this project.
+                </div>
+              )
+            )}
+          </div>
+
           {/* Common Indent Fields */}
           <div className="grid grid-cols-2 gap-2 md:gap-4 pb-3 md:pb-4 border-b border-gray-100">
             <div className="space-y-1">
@@ -332,6 +378,7 @@ export default function Reqmaterial({ isOpen, onClose, project, onSaved }) {
                       type="number"
                       value={item.qty}
                       onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
                       placeholder="0"
                       className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[11px] md:text-[13px] h-[30px] md:h-[34px]"
                     />

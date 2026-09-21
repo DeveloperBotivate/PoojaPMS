@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Building2, MapPin, Calendar, Tag, FilePlus, Search, RotateCcw, Hammer, Ruler, ListChecks, Check, GitCompare, Mountain } from 'lucide-react';
-import { getProjects, getDesignByProject, getExecutions, getActuals } from '../../../utils/storageManager';
+import { ArrowLeft, Building2, MapPin, Calendar, Tag, FilePlus, Search, RotateCcw, Hammer, Ruler, ListChecks, Check, GitCompare, Mountain, Workflow, FileUp, UploadCloud, ClipboardList } from 'lucide-react';
+import { getDesignByProject, getExecutions, getActuals, getMinors, getProjectOrMinor } from '../../../utils/storageManager';
 import { buildChainageDiffMap } from '../../../utils/helpers';
 import DataTable from '../../../components/DataTable';
 import SearchableDropdown from '../../../components/SearchableDropdown';
 import { DESIGN_COLUMNS } from './UploadDesign';
+import UploadDesign from './UploadDesign';
 import Reqmaterial from '../../MaterialRequirement/Reqmaterial';
 import Execution from './Execution';
 import Actual from './Actual';
@@ -26,6 +27,7 @@ export default function ViewDesign() {
   const [project, setProject] = useState(null);
   const [rows, setRows] = useState([]);
   const [showReqModal, setShowReqModal] = useState(false);
+  const [showUploadDesignModal, setShowUploadDesignModal] = useState(false);
   const [execRow, setExecRow] = useState(null);
   const [actualRow, setActualRow] = useState(null);
   const [executions, setExecutions] = useState([]);
@@ -36,7 +38,7 @@ export default function ViewDesign() {
 
   useEffect(() => {
     const decodedNo = decodeURIComponent(projectNo || '');
-    const found = getProjects().find(p => p.serialNo === decodedNo);
+    const found = getProjectOrMinor(decodedNo);
     setProject(found || null);
     setRows(getDesignByProject(decodedNo));
     setExecutions(getExecutions());
@@ -209,10 +211,10 @@ export default function ViewDesign() {
     return (
       <div className="p-6 space-y-4">
         <button
-          onClick={() => navigate('/add-project')}
+          onClick={() => project?.isMinor ? navigate(`/project-minors/${encodeURIComponent(project.parentProjectNo)}`) : navigate('/upload-design')}
           className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-semibold"
         >
-          <ArrowLeft size={16} /> Back to New Project
+          <ArrowLeft size={16} /> Back
         </button>
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-500 text-sm">
           Project not found.
@@ -226,7 +228,7 @@ export default function ViewDesign() {
       {/* Row 1: Back + Search + Filters + Add Requirement */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 w-full px-2 sm:px-0">
         <button
-          onClick={() => navigate('/add-project')}
+          onClick={() => project?.isMinor ? navigate(`/project-minors/${encodeURIComponent(project.parentProjectNo)}`) : navigate('/upload-design')}
           className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 text-sm font-semibold w-fit flex-shrink-0"
         >
           <ArrowLeft size={16} /> Back
@@ -245,7 +247,7 @@ export default function ViewDesign() {
           </div>
           <div className="w-40 md:w-56 flex-shrink-0">
             <SearchableDropdown
-              options={Array.from(new Set(rows.map(r => r.alignment))).filter(Boolean).sort().map(v => ({ value: v, label: v }))}
+              options={Array.from(new Set(rows.map(r => r.alignment))).filter(Boolean).sort().map(v => ({ value: v, label: String(v) }))}
               value={filters.alignment}
               onChange={(val) => setFilters({ ...filters, alignment: val })}
               placeholder="All Alignment"
@@ -277,12 +279,18 @@ export default function ViewDesign() {
           onClick={() => setShowReqModal(true)}
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm transition flex-shrink-0"
         >
-          <FilePlus size={16} /> Add Requirement
+          <FilePlus size={16} /> Material Requirement
         </button>
       </div>
 
-      {/* Row 2: Execution Details + Actual Details + Auto Comparison */}
+      {/* Row 2: Requirement History + Execution Details + Actual Details + Auto Comparison */}
       <div className="flex items-center justify-end gap-2 flex-wrap w-full px-2 sm:px-0">
+        <button
+          onClick={() => navigate(`/material-requirement/${encodeURIComponent(project.serialNo)}`)}
+          className="flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-600 rounded-lg px-3 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm hover:bg-blue-50 transition"
+        >
+          <ClipboardList size={16} /> Material Requirement History
+        </button>
         <button
           onClick={() => navigate(`/execution-details/${encodeURIComponent(project.serialNo)}`)}
           className="flex items-center justify-center gap-2 bg-white border border-indigo-200 text-indigo-600 rounded-lg px-3 h-[32px] md:h-[38px] text-xs md:text-sm font-semibold shadow-sm hover:bg-indigo-50 transition"
@@ -368,6 +376,14 @@ export default function ViewDesign() {
         onClose={() => setShowReqModal(false)}
         project={project}
         onSaved={() => setShowReqModal(false)}
+      />
+
+      {/* Upload Design Modal */}
+      <UploadDesign
+        isOpen={showUploadDesignModal}
+        onClose={() => setShowUploadDesignModal(false)}
+        project={project}
+        onUploaded={() => { setShowUploadDesignModal(false); setRows(getDesignByProject(project.serialNo)); }}
       />
 
       {/* Execution Entry Modal */}

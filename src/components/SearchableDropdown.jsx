@@ -17,9 +17,10 @@ const SearchableDropdown = ({ options, value, onChange, onAdd, placeholder = "Se
   const [openUp, setOpenUp] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Filter options based on search term
+  // Filter options based on search term - label isn't always a string (e.g. a numeric
+  // Alignment/Pipe Dia value passed straight through from uploaded data), so coerce it first.
   const filteredOptions = options.filter(opt =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    String(opt.label ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Find the label for the current value
